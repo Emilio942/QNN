@@ -1,0 +1,12 @@
+spec: specs/tensor_spec.yaml
+train:
+  steps: 50
+  batch: 32
+  q: 4
+  L: 2
+  noise: false
+  out: reports/reupload_params.json
+predict:
+  params: reports/reupload_params.json
+  n: 5
+  # input: path/to/vectors.json

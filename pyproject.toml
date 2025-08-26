@@ -18,3 +18,5 @@ license = { text = "MIT" }
 
 [project.scripts]
 qnn-run-all = "qnn.cli:run_all"
+qnn-train = "scripts.train_reupload_classifier:main"
+qnn-predict = "scripts.predict_reupload_classifier:main"

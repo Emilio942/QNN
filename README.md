@@ -52,12 +52,39 @@ pip install -r requirements.txt
   ```zsh
   python scripts/train_reupload_classifier.py --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json
   ```
+  As console command:
+  ```zsh
+  qnn-train --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json
+  ```
   Predict with saved params:
   ```zsh
   python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --n 5
   # or with your own JSON vectors file
   python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --input path/to/vectors.json
   ```
+  As console command:
+  ```zsh
+  qnn-predict --params reports/reupload_params.json --n 5
+  ```
+
+## Configs
+
+You can keep common settings in a YAML/JSON file, e.g. `configs/example.yaml`:
+
+```yaml
+spec: specs/tensor_spec.yaml
+train:
+  steps: 50
+  batch: 32
+  q: 4
+  L: 2
+  noise: false
+  out: reports/reupload_params.json
+predict:
+  params: reports/reupload_params.json
+  n: 5
+```
+Use the values by passing them as CLI args (config loader utility is available at `qnn/config.py`; integrate as needed).
 
 ## Tests
 
