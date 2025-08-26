@@ -21,6 +21,7 @@ from qnn.vqa import build_reupload_variational_circuit, spsa_gradient, spsa_step
 from qnn.observables import z_expectation_statevector
 from qnn.noise import make_basic_noise_model
 from qnn.models import save_params
+from qnn.config import load_config
 
 from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
@@ -80,24 +81,41 @@ def score_qc(qc, use_noise=False, shots=2048, noise_cfg=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Train data re-upload classifier with SPSA")
-    parser.add_argument("--steps", type=int, default=30, help="SPSA steps")
-    parser.add_argument("--batch", type=int, default=32, help="Mini-batch size")
-    parser.add_argument("--q", type=int, default=4, help="Number of qubits (cap)")
-    parser.add_argument("--L", type=int, default=2, help="Re-upload layers")
-    parser.add_argument("--noise", action="store_true", help="Train with noise model for scoring")
-    parser.add_argument("--out", type=str, default=str(ROOT / "reports" / "reupload_params.json"), help="Path to save trained params JSON")
+    parser.add_argument("--config", type=str, help="Optional YAML/JSON config file")
+    parser.add_argument("--spec", type=str, help="Spec YAML path")
+    parser.add_argument("--steps", type=int, default=None, help="SPSA steps")
+    parser.add_argument("--batch", type=int, default=None, help="Mini-batch size")
+    parser.add_argument("--q", type=int, default=None, help="Number of qubits (cap)")
+    parser.add_argument("--L", type=int, default=None, help="Re-upload layers")
+    parser.add_argument("--noise", type=str, choices=["true", "false"], default=None, help="Train with noise model")
+    parser.add_argument("--out", type=str, default=None, help="Path to save trained params JSON")
     args = parser.parse_args()
 
-    spec = load_tensor_spec(ROOT / "specs/tensor_spec.yaml")
+    cfg = load_config(args.config) if args.config else {}
+    # Resolve spec path
+    default_spec = str(ROOT / "specs" / "tensor_spec.yaml")
+    spec_path = args.spec or cfg.get("spec") or default_spec
+    spec = load_tensor_spec(spec_path)
     spec["encoding_goal"]["target"] = "angle"
     d = spec["shape"]["d"] if spec["shape"]["layout"] == "d" else spec["shape"]["H"]*spec["shape"]["W"]*spec["shape"]["C"]
 
     X, y = make_toy_dataset(256, int(d))
     Xtr, ytr, Xva, yva = split_data(X, y, val_ratio=0.25)
 
+    # Resolve training hyperparams (config -> defaults -> CLI overrides)
+    tcfg = cfg.get("train", {}) if isinstance(cfg, dict) else {}
+    steps = args.steps if args.steps is not None else int(tcfg.get("steps", 30))
+    batch = args.batch if args.batch is not None else int(tcfg.get("batch", 32))
+    q_cap = args.q if args.q is not None else int(tcfg.get("q", 4))
+    L = args.L if args.L is not None else int(tcfg.get("L", 2))
+    if args.noise is not None:
+        noise_flag = True if args.noise.lower() == "true" else False
+    else:
+        noise_flag = bool(tcfg.get("noise", False))
+    out_path = args.out or str(tcfg.get("out", str(ROOT / "reports" / "reupload_params.json")))
+
     plan = plan_from_spec(spec)
-    q = min(args.q, plan["d"])  # cap
-    L = int(args.L)
+    q = min(q_cap, plan["d"])  # cap
 
     # params
     theta = [0.0] * (q * L)
@@ -119,23 +137,22 @@ def main():
 
     def loss_fn(params):
         # evaluate on a random mini-batch
-        bs = int(args.batch)
+        bs = int(batch)
         # Single random batch per call (SPSA stochastic estimate)
         start = random.randrange(0, max(1, len(Xtr) - bs + 1))
         bx = Xtr[start:start+bs]
         by = ytr[start:start+bs]
-        return loss_on_batch(bx, by, params, noise=args.noise)
+        return loss_on_batch(bx, by, params, noise=noise_flag)
 
     grad = spsa_gradient(loss_fn, c=0.1)
 
     log = []
-    steps = int(args.steps)
-    for k in range(1, steps + 1):
+    for k in range(1, int(steps) + 1):
         theta = spsa_step(theta, grad, a=0.15, c=0.1)
         if k % 5 == 0 or k == 1:
             # full-batch metrics
-            train_loss = loss_on_batch(Xtr, ytr, theta, noise=args.noise)
-            val_loss = loss_on_batch(Xva, yva, theta, noise=args.noise)
+            train_loss = loss_on_batch(Xtr, ytr, theta, noise=noise_flag)
+            val_loss = loss_on_batch(Xva, yva, theta, noise=noise_flag)
             # accuracy
             def acc(Xs, Ys):
                 correct = 0
@@ -155,8 +172,8 @@ def main():
     outdir.mkdir(exist_ok=True)
     (outdir / "train_reupload_classifier.json").write_text(json.dumps(log, indent=2))
     # Save parameters
-    save_params(args.out, theta, q=q, L=L)
-    print({"saved_log": str(outdir / "train_reupload_classifier.json"), "saved_params": args.out})
+    save_params(out_path, theta, q=q, L=L)
+    print({"saved_log": str(outdir / "train_reupload_classifier.json"), "saved_params": out_path, "spec": spec_path})
 
 
 if __name__ == "__main__":

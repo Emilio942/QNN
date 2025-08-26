@@ -85,6 +85,12 @@ predict:
   n: 5
 ```
 Use the values by passing them as CLI args (config loader utility is available at `qnn/config.py`; integrate as needed).
+Or run with a config file directly:
+
+```zsh
+qnn-train --config configs/example.yaml
+qnn-predict --config configs/example.yaml
+```
 
 ## Tests
 
