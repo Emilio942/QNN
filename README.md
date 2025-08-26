@@ -67,6 +67,21 @@ pip install -r requirements.txt
   qnn-predict --params reports/reupload_params.json --n 5 --seed 0 --export reports/predict.json
   ```
 
+## Evaluation
+
+Evaluate saved params on a dataset (CSV or JSON). CSV expects rows of features with the last column as label; JSON expects {"X": [[...], ...], "y": [1,-1,...]}.
+
+```zsh
+# Using toy fallback (no data file), with export
+python scripts/eval_classifier.py --params reports/reupload_params.json --seed 0 --export reports/eval.json
+
+# With a dataset file
+python scripts/eval_classifier.py --params reports/reupload_params.json --data path/to/data.csv --export reports/eval.csv
+
+# Via config
+python scripts/eval_classifier.py --config configs/example.yaml
+```
+
 ## Configs
 
 You can keep common settings in a YAML/JSON file, e.g. `configs/example.yaml`:

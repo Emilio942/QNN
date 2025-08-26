@@ -11,4 +11,9 @@ predict:
   n: 5
   seed: 0
   export: reports/predict_example.json
+eval:
+  params: reports/reupload_params.json
+  # data: data/dataset.csv  # optional; if omitted uses toy fallback
+  seed: 0
+  export: reports/eval_predictions.json
   # input: path/to/vectors.json
