@@ -15,6 +15,7 @@ CMDS = [
     [sys.executable, "scripts/demo_noise_angle.py"],
     [sys.executable, "scripts/demo_vqa_spsa.py"],
     [sys.executable, "scripts/demo_reupload_classifier.py"],
+    [sys.executable, "scripts/train_reupload_classifier.py"],
 ]
 
 

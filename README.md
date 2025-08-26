@@ -48,6 +48,10 @@ pip install -r requirements.txt
   ```zsh
   python scripts/demo_reupload_classifier.py
   ```
+- Train re-upload classifier (toy):
+  ```zsh
+  python scripts/train_reupload_classifier.py
+  ```
 
 ## Tests
 
