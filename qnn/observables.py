@@ -69,3 +69,13 @@ def zz_grid_expectation_statevector(probs: np.ndarray, H: int, W: int) -> float:
     return exp_sum / len(edges)
 
 __all__.append("zz_grid_expectation_statevector")
+
+def z_expectation_statevector(probs: np.ndarray, qubit: int) -> float:
+    """Compute <Z_qubit> from probability vector assuming little-endian order."""
+    exp = 0.0
+    for i, p in enumerate(probs):
+        z = -1.0 if (i >> qubit) & 1 else 1.0
+        exp += float(p) * z
+    return exp
+
+__all__.append("z_expectation_statevector")

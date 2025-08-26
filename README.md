@@ -40,6 +40,14 @@ pip install -r requirements.txt
   ```zsh
   python scripts/demo_noise_angle.py
   ```
+- VQA (SPSA) demo:
+  ```zsh
+  python scripts/demo_vqa_spsa.py
+  ```
+- Data re-upload classifier (toy):
+  ```zsh
+  python scripts/demo_reupload_classifier.py
+  ```
 
 ## Tests
 
