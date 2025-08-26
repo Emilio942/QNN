@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+          pip install pytest
+
+      - name: Spec validator
+        run: python scripts/smoke_validate_spec.py
+
+      - name: Unit tests
+        run: python -m pytest -q
+
+      - name: Quick demos (angle/amplitude)
+        run: |
+          python scripts/demo_angle_sim.py
+          python scripts/demo_amplitude_sim.py

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qnn-pipeline"
+version = "0.1.0"
+description = "Tensor → Quantum state encoding demos and utilities"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML>=6.0.1",
+  "qiskit==1.2.4",
+  "qiskit-aer==0.15.1",
+]
+readme = "README.md"
+authors = [{ name = "emilio" }]
+
+[project.scripts]
+qnn-run-all = "qnn.cli:run_all"

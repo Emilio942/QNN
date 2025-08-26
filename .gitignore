@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Venv
+.venv/
+
+# VS Code
+.vscode/
+
+# Plots/Reports
+reports/
+
+# Build
+build/
+dist/
+*.egg-info/
