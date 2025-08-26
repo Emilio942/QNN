@@ -35,3 +35,8 @@ jobs:
         run: |
           python scripts/demo_angle_sim.py
           python scripts/demo_amplitude_sim.py
+
+      - name: Smoke train/predict
+        run: |
+          qnn-train --steps 1 --batch 8 --q 2 --L 1 --out reports/ci_params.json
+          qnn-predict --params reports/ci_params.json --n 2
