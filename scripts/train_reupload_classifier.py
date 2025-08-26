@@ -22,6 +22,7 @@ from qnn.observables import z_expectation_statevector
 from qnn.noise import make_basic_noise_model
 from qnn.models import save_params
 from qnn.config import load_config
+from qnn.data import load_vectors_labels
 
 from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
@@ -86,6 +87,8 @@ def main():
     parser.add_argument("--L", type=int, default=None, help="Re-upload layers")
     parser.add_argument("--noise", type=str, choices=["true", "false"], default=None, help="Train with noise model")
     parser.add_argument("--out", type=str, default=None, help="Path to save trained params JSON")
+    parser.add_argument("--data", type=str, default=None, help="Optional training dataset file (CSV/JSON)")
+    parser.add_argument("--val-data", type=str, default=None, help="Optional validation dataset file (CSV/JSON)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     args = parser.parse_args()
 
@@ -101,8 +104,6 @@ def main():
         random.seed(int(args.seed))
     else:
         random.seed(0)
-    X, y = make_toy_dataset(256, int(d))
-    Xtr, ytr, Xva, yva = split_data(X, y, val_ratio=0.25)
 
     # Resolve training hyperparams (config -> defaults -> CLI overrides)
     tcfg = cfg.get("train", {}) if isinstance(cfg, dict) else {}
@@ -115,6 +116,20 @@ def main():
     else:
         noise_flag = bool(tcfg.get("noise", False))
     out_path = args.out or str(tcfg.get("out", str(ROOT / "reports" / "reupload_params.json")))
+    data_path = args.data or tcfg.get("data")
+    val_data_path = args.val_data or tcfg.get("val_data")
+
+    # Load data (file or toy fallback) and split
+    if data_path:
+        X, y = load_vectors_labels(data_path)
+        if val_data_path:
+            Xva, yva = load_vectors_labels(val_data_path)
+            Xtr, ytr = X, y
+        else:
+            Xtr, ytr, Xva, yva = split_data(X, y, val_ratio=0.25)
+    else:
+        X, y = make_toy_dataset(256, int(d))
+        Xtr, ytr, Xva, yva = split_data(X, y, val_ratio=0.25)
 
     plan = plan_from_spec(spec)
     q = min(q_cap, plan["d"])  # cap
@@ -186,6 +201,7 @@ def main():
         "noise": bool(noise_flag),
         "seed": int(args.seed) if args.seed is not None else 0,
         "sizes": {"train": len(Xtr), "val": len(Xva)},
+        "data": {"train": data_path, "val": val_data_path},
     }
     (outdir / "train_reupload_classifier_meta.json").write_text(json.dumps(meta, indent=2))
     print({"saved_log": str(outdir / "train_reupload_classifier.json"), "saved_meta": str(outdir / "train_reupload_classifier_meta.json"), "saved_params": out_path})

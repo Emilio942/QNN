@@ -56,6 +56,10 @@ pip install -r requirements.txt
   ```zsh
   qnn-train --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json --seed 0
   ```
+  Train with your dataset (CSV with last column label, or JSON {"X": [...], "y": [...]})
+  ```zsh
+  qnn-train --data data/train.csv --val-data data/val.csv --out reports/reupload_params.json --seed 0
+  ```
   Predict with saved params:
   ```zsh
   python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --n 5 --seed 0 --export reports/predict.json

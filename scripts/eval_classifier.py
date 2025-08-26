@@ -17,26 +17,7 @@ from qnn.io import load_tensor_spec
 from qnn.models import predict_scores
 from qnn.metrics import accuracy, confusion_counts, roc_auc
 from qnn.config import load_config
-
-
-def load_vectors_labels(path: str | Path) -> Tuple[List[List[float]], List[int]]:
-    p = Path(path)
-    if p.suffix.lower() == ".json":
-        data = json.loads(p.read_text())
-        # Expect {"X": [[...], ...], "y": [1,-1,...]}
-        return data["X"], data["y"]
-    # CSV: rows of values with last column as label
-    X: List[List[float]] = []
-    y: List[int] = []
-    with p.open() as f:
-        r = csv.reader(f)
-        for row in r:
-            if not row:
-                continue
-            *feat, lab = row
-            X.append([float(v) for v in feat])
-            y.append(int(lab))
-    return X, y
+from qnn.data import load_vectors_labels
 
 
 def main():
@@ -45,6 +26,7 @@ def main():
     parser.add_argument("--params", type=str, help="Path to params JSON")
     parser.add_argument("--spec", type=str, help="Spec YAML path")
     parser.add_argument("--data", type=str, help="Dataset file (.json with X/y or .csv with last col label)")
+    parser.add_argument("--val-data", type=str, help="Optional validation dataset (currently unused)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for toy fallback")
     parser.add_argument("--export", type=str, help="Optional path to save predictions (.json/.csv)")
     args = parser.parse_args()

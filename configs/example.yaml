@@ -6,6 +6,8 @@ train:
   L: 2
   noise: false
   out: reports/reupload_params.json
+  # data: data/train.csv
+  # val_data: data/val.csv
 predict:
   params: reports/reupload_params.json
   n: 5
