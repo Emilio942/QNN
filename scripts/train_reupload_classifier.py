@@ -8,6 +8,7 @@ import random
 import math
 from dataclasses import dataclass
 from typing import List, Tuple
+import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -19,6 +20,7 @@ from qnn.planning import plan_from_spec
 from qnn.vqa import build_reupload_variational_circuit, spsa_gradient, spsa_step
 from qnn.observables import z_expectation_statevector
 from qnn.noise import make_basic_noise_model
+from qnn.models import save_params
 
 from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
@@ -77,6 +79,15 @@ def score_qc(qc, use_noise=False, shots=2048, noise_cfg=None):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Train data re-upload classifier with SPSA")
+    parser.add_argument("--steps", type=int, default=30, help="SPSA steps")
+    parser.add_argument("--batch", type=int, default=32, help="Mini-batch size")
+    parser.add_argument("--q", type=int, default=4, help="Number of qubits (cap)")
+    parser.add_argument("--L", type=int, default=2, help="Re-upload layers")
+    parser.add_argument("--noise", action="store_true", help="Train with noise model for scoring")
+    parser.add_argument("--out", type=str, default=str(ROOT / "reports" / "reupload_params.json"), help="Path to save trained params JSON")
+    args = parser.parse_args()
+
     spec = load_tensor_spec(ROOT / "specs/tensor_spec.yaml")
     spec["encoding_goal"]["target"] = "angle"
     d = spec["shape"]["d"] if spec["shape"]["layout"] == "d" else spec["shape"]["H"]*spec["shape"]["W"]*spec["shape"]["C"]
@@ -85,8 +96,8 @@ def main():
     Xtr, ytr, Xva, yva = split_data(X, y, val_ratio=0.25)
 
     plan = plan_from_spec(spec)
-    q = min(4, plan["d"])  # cap at 4 for simplicity
-    L = 2
+    q = min(args.q, plan["d"])  # cap
+    L = int(args.L)
 
     # params
     theta = [0.0] * (q * L)
@@ -108,23 +119,23 @@ def main():
 
     def loss_fn(params):
         # evaluate on a random mini-batch
-        bs = 32
+        bs = int(args.batch)
         # Single random batch per call (SPSA stochastic estimate)
         start = random.randrange(0, max(1, len(Xtr) - bs + 1))
         bx = Xtr[start:start+bs]
         by = ytr[start:start+bs]
-        return loss_on_batch(bx, by, params, noise=False)
+        return loss_on_batch(bx, by, params, noise=args.noise)
 
     grad = spsa_gradient(loss_fn, c=0.1)
 
     log = []
-    steps = 30
+    steps = int(args.steps)
     for k in range(1, steps + 1):
         theta = spsa_step(theta, grad, a=0.15, c=0.1)
         if k % 5 == 0 or k == 1:
             # full-batch metrics
-            train_loss = loss_on_batch(Xtr, ytr, theta, noise=False)
-            val_loss = loss_on_batch(Xva, yva, theta, noise=False)
+            train_loss = loss_on_batch(Xtr, ytr, theta, noise=args.noise)
+            val_loss = loss_on_batch(Xva, yva, theta, noise=args.noise)
             # accuracy
             def acc(Xs, Ys):
                 correct = 0
@@ -143,7 +154,9 @@ def main():
     outdir = ROOT / "reports"
     outdir.mkdir(exist_ok=True)
     (outdir / "train_reupload_classifier.json").write_text(json.dumps(log, indent=2))
-    print({"saved": str(outdir / "train_reupload_classifier.json")})
+    # Save parameters
+    save_params(args.out, theta, q=q, L=L)
+    print({"saved_log": str(outdir / "train_reupload_classifier.json"), "saved_params": args.out})
 
 
 if __name__ == "__main__":

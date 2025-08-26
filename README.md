@@ -50,7 +50,13 @@ pip install -r requirements.txt
   ```
 - Train re-upload classifier (toy):
   ```zsh
-  python scripts/train_reupload_classifier.py
+  python scripts/train_reupload_classifier.py --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json
+  ```
+  Predict with saved params:
+  ```zsh
+  python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --n 5
+  # or with your own JSON vectors file
+  python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --input path/to/vectors.json
   ```
 
 ## Tests
