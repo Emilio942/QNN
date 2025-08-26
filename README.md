@@ -49,3 +49,7 @@ python scripts/test_preprocess.py
 
 ## Spec
 Fill `specs/tensor_spec.yaml` (dtype, shape, indexing, encoding target, scaling). See `aufgabeliste.md` item 1 for the detailed checklist.
+
+## License
+
+MIT License — see `LICENSE`.
