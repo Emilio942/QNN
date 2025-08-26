@@ -23,6 +23,8 @@ def main():
     parser.add_argument("--spec", type=str, help="Spec YAML path")
     parser.add_argument("--input", type=str, help="Optional JSON file with list of vectors; otherwise random toy vectors")
     parser.add_argument("--n", type=int, default=None, help="Number of random vectors if no input file")
+    parser.add_argument("--export", type=str, help="Optional path to save predictions (.json or .csv)")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for toy vectors")
     args = parser.parse_args()
 
     cfg = load_config(args.config) if args.config else {}
@@ -31,6 +33,8 @@ def main():
     spec_path = args.spec or cfg.get("spec") or str(ROOT / "specs" / "tensor_spec.yaml")
     n_rand = int(args.n) if args.n is not None else int(pcfg.get("n", 5))
     input_path = args.input or pcfg.get("input")
+    export_path = args.export or pcfg.get("export")
+    seed = args.seed if args.seed is not None else pcfg.get("seed")
 
     if not params_path:
         raise SystemExit("--params missing (and not found in config)")
@@ -44,12 +48,27 @@ def main():
     if input_path:
         vectors = json.loads(Path(input_path).read_text())
     else:
-        random.seed(0)
+        random.seed(int(seed) if seed is not None else 0)
         vectors = [[random.uniform(-1, 1) for _ in range(d)] for _ in range(n_rand)]
 
     scores = predict_scores(vectors, params_path, spec_path)
     out = [{"i": i, "score": float(s)} for i, s in enumerate(scores)]
-    print(json.dumps(out, indent=2))
+    if export_path:
+        from pathlib import Path
+        p = Path(export_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if p.suffix.lower() == ".csv":
+            import csv
+            with p.open("w", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(["i", "score"])
+                for row in out:
+                    w.writerow([row["i"], row["score"]])
+        else:
+            p.write_text(json.dumps(out, indent=2))
+        print(json.dumps({"saved": str(p), "n": len(out)}, indent=2))
+    else:
+        print(json.dumps(out, indent=2))
 
 
 if __name__ == "__main__":

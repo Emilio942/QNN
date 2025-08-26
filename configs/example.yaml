@@ -9,4 +9,6 @@ train:
 predict:
   params: reports/reupload_params.json
   n: 5
+  seed: 0
+  export: reports/predict_example.json
   # input: path/to/vectors.json

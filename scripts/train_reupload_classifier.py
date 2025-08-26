@@ -27,9 +27,6 @@ from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
 
 
-random.seed(0)
-
-
 def make_toy_dataset(n: int, d: int) -> Tuple[List[List[float]], List[int]]:
     X = []
     y = []
@@ -89,6 +86,7 @@ def main():
     parser.add_argument("--L", type=int, default=None, help="Re-upload layers")
     parser.add_argument("--noise", type=str, choices=["true", "false"], default=None, help="Train with noise model")
     parser.add_argument("--out", type=str, default=None, help="Path to save trained params JSON")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     args = parser.parse_args()
 
     cfg = load_config(args.config) if args.config else {}
@@ -99,6 +97,10 @@ def main():
     spec["encoding_goal"]["target"] = "angle"
     d = spec["shape"]["d"] if spec["shape"]["layout"] == "d" else spec["shape"]["H"]*spec["shape"]["W"]*spec["shape"]["C"]
 
+    if args.seed is not None:
+        random.seed(int(args.seed))
+    else:
+        random.seed(0)
     X, y = make_toy_dataset(256, int(d))
     Xtr, ytr, Xva, yva = split_data(X, y, val_ratio=0.25)
 
@@ -173,7 +175,20 @@ def main():
     (outdir / "train_reupload_classifier.json").write_text(json.dumps(log, indent=2))
     # Save parameters
     save_params(out_path, theta, q=q, L=L)
-    print({"saved_log": str(outdir / "train_reupload_classifier.json"), "saved_params": out_path, "spec": spec_path})
+    # Save metadata
+    meta = {
+        "spec": spec_path,
+        "out_params": out_path,
+        "steps": int(steps),
+        "batch": int(batch),
+        "q": int(q),
+        "L": int(L),
+        "noise": bool(noise_flag),
+        "seed": int(args.seed) if args.seed is not None else 0,
+        "sizes": {"train": len(Xtr), "val": len(Xva)},
+    }
+    (outdir / "train_reupload_classifier_meta.json").write_text(json.dumps(meta, indent=2))
+    print({"saved_log": str(outdir / "train_reupload_classifier.json"), "saved_meta": str(outdir / "train_reupload_classifier_meta.json"), "saved_params": out_path})
 
 
 if __name__ == "__main__":

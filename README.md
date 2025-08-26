@@ -50,21 +50,21 @@ pip install -r requirements.txt
   ```
 - Train re-upload classifier (toy):
   ```zsh
-  python scripts/train_reupload_classifier.py --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json
+  python scripts/train_reupload_classifier.py --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json --seed 0
   ```
   As console command:
   ```zsh
-  qnn-train --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json
+  qnn-train --steps 30 --batch 32 --q 4 --L 2 --out reports/reupload_params.json --seed 0
   ```
   Predict with saved params:
   ```zsh
-  python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --n 5
+  python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --n 5 --seed 0 --export reports/predict.json
   # or with your own JSON vectors file
-  python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --input path/to/vectors.json
+  python scripts/predict_reupload_classifier.py --params reports/reupload_params.json --input path/to/vectors.json --export reports/predict.csv
   ```
   As console command:
   ```zsh
-  qnn-predict --params reports/reupload_params.json --n 5
+  qnn-predict --params reports/reupload_params.json --n 5 --seed 0 --export reports/predict.json
   ```
 
 ## Configs
