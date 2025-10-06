@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 
 from qnn.io import load_tensor_spec
 from qnn.models import predict_scores
-from qnn.metrics import accuracy, confusion_counts, roc_auc
+from qnn.metrics import accuracy, confusion_counts, roc_auc, precision_recall_f1, pr_curve
 from qnn.config import load_config
 from qnn.data import load_vectors_labels
 
@@ -29,6 +29,8 @@ def main():
     parser.add_argument("--val-data", type=str, help="Optional validation dataset (currently unused)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for toy fallback")
     parser.add_argument("--export", type=str, help="Optional path to save predictions (.json/.csv)")
+    parser.add_argument("--plot", type=str, help="Optional path to save PR curve (.png)")
+    parser.add_argument("--roc-plot", type=str, help="Optional path to save ROC curve (.png)")
     args = parser.parse_args()
 
     cfg = load_config(args.config) if args.config else {}
@@ -59,12 +61,16 @@ def main():
     acc = accuracy(y, preds)
     tp, fp, tn, fn = confusion_counts(y, preds)
     auc = roc_auc(y, scores)
+    p, r, f1 = precision_recall_f1(y, preds)
 
     report = {
         "n": len(y),
         "accuracy": round(float(acc), 4),
-        "confusion": {"tp": tp, "fp": fp, "tn": tn, "fn": fn},
+    "confusion": {"tp": tp, "fp": fp, "tn": tn, "fn": fn},
         "auc": None if auc is None else round(float(auc), 4),
+    "precision": round(float(p), 4),
+    "recall": round(float(r), 4),
+    "f1": round(float(f1), 4),
     }
     print(json.dumps(report, indent=2))
 
@@ -81,6 +87,41 @@ def main():
         else:
             p.write_text(json.dumps(rows, indent=2))
         print(json.dumps({"saved": str(p), "n": len(rows)}, indent=2))
+
+    if args.plot:
+        import matplotlib.pyplot as plt
+        pr_p, pr_r, thr = pr_curve(y, scores, thresholds=50)
+        plt.figure(figsize=(4, 3))
+        plt.plot(pr_r, pr_p, label="PR curve")
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.grid(True, alpha=0.3)
+        Path(args.plot).parent.mkdir(parents=True, exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(args.plot)
+        print(json.dumps({"saved_plot": args.plot}, indent=2))
+
+    if args.roc_plot:
+        # Build ROC by sweeping thresholds
+        import matplotlib.pyplot as plt
+        # thresholds similar to PR; compute FPR/TPR
+        ts = [min(scores) + (max(scores) - min(scores)) * i / max(1, 50 - 1) for i in range(50)]
+        fpr, tpr = [], []
+        for t in ts:
+            y_pred = [1 if s >= t else -1 for s in scores]
+            tp, fp, tn, fn = confusion_counts(y, y_pred)
+            tpr.append(tp / max(1, tp + fn))
+            fpr.append(fp / max(1, fp + tn))
+        plt.figure(figsize=(4, 3))
+        plt.plot(fpr, tpr, label=f"ROC (AUC={auc if auc is not None else 'NA'})")
+        plt.plot([0, 1], [0, 1], 'k--', alpha=0.3)
+        plt.xlabel("FPR")
+        plt.ylabel("TPR")
+        plt.grid(True, alpha=0.3)
+        Path(args.roc_plot).parent.mkdir(parents=True, exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(args.roc_plot)
+        print(json.dumps({"saved_plot": args.roc_plot}, indent=2))
 
 
 if __name__ == "__main__":

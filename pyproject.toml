@@ -16,7 +16,15 @@ readme = "README.md"
 authors = [{ name = "emilio" }]
 license = { text = "MIT" }
 
+[tool.setuptools.packages.find]
+include = ["qnn*", "scripts*"]
+
 [project.scripts]
 qnn-run-all = "qnn.cli:run_all"
 qnn-train = "scripts.train_reupload_classifier:main"
 qnn-predict = "scripts.predict_reupload_classifier:main"
+qnn-hw = "scripts.hw_transpile_summary:main"
+qnn-embed = "scripts.ollama_embeddings:main"
+qnn-intent = "scripts.intent_router:main"
+qnn-make-spec = "scripts.make_vector_spec:main"
+qnn-nn2qnn = "scripts.nn2qnn_init:main"

@@ -2,3 +2,4 @@ PyYAML>=6.0.1
 qiskit==1.2.4
 qiskit-aer==0.15.1
 matplotlib>=3.8.0
+requests>=2.31.0

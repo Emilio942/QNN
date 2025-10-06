@@ -164,6 +164,17 @@ def main():
     grad = spsa_gradient(loss_fn, c=0.1)
 
     log = []
+    # per-step CSV
+    outdir = ROOT / "reports"
+    outdir.mkdir(exist_ok=True)
+    csv_path = outdir / "train_steps.csv"
+    try:
+        import csv as _csv
+        with csv_path.open("w", newline="") as f:
+            w = _csv.writer(f)
+            w.writerow(["step", "train_loss", "val_loss", "train_acc", "val_acc"])
+    except Exception:
+        csv_path = None
     for k in range(1, int(steps) + 1):
         theta = spsa_step(theta, grad, a=0.15, c=0.1)
         if k % 5 == 0 or k == 1:
@@ -183,10 +194,12 @@ def main():
             row = {"step": k, "train_loss": round(float(train_loss), 4), "val_loss": round(float(val_loss), 4), "train_acc": round(float(train_acc), 4), "val_acc": round(float(val_acc), 4)}
             print(row)
             log.append(row)
+            if csv_path is not None:
+                with csv_path.open("a", newline="") as f:
+                    w = _csv.writer(f)
+                    w.writerow([row["step"], row["train_loss"], row["val_loss"], row["train_acc"], row["val_acc"]])
 
     # save log
-    outdir = ROOT / "reports"
-    outdir.mkdir(exist_ok=True)
     (outdir / "train_reupload_classifier.json").write_text(json.dumps(log, indent=2))
     # Save parameters
     save_params(out_path, theta, q=q, L=L)

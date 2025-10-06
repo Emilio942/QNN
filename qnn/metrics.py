@@ -51,3 +51,24 @@ def roc_auc(y_true: List[int], scores: List[float]) -> Optional[float]:
     sum_ranks_pos = sum(r for (yt, _), r in zip(pairs, ranks) if yt == 1)
     auc = (sum_ranks_pos - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
     return float(auc)
+
+
+def precision_recall_f1(y_true: List[int], y_pred: List[int]) -> Tuple[float, float, float]:
+    tp, fp, tn, fn = confusion_counts(y_true, y_pred)
+    p = tp / max(1, tp + fp)
+    r = tp / max(1, tp + fn)
+    f1 = 2 * p * r / max(1e-12, p + r)
+    return p, r, f1
+
+
+def pr_curve(y_true: List[int], scores: List[float], thresholds: int = 50) -> Tuple[List[float], List[float], List[float]]:
+    ts = [min(scores) + (max(scores) - min(scores)) * i / max(1, thresholds - 1) for i in range(thresholds)]
+    prec, rec, thr = [], [], []
+    for t in ts:
+        y_pred = [1 if s >= t else -1 for s in scores]
+        p, r, _ = precision_recall_f1(y_true, y_pred)
+        prec.append(p)
+        rec.append(r)
+        thr.append(t)
+    return prec, rec, thr
+

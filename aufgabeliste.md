@@ -494,14 +494,24 @@ Diskrete Indizes/Klassen? → Basis (oder Angle auf kleinen One-Hot-Projektionen
 
 Interferenz-lastig? → Phase (oder kombinierte Feature-Map).
 
-— Fortschritt (26.08.2025):
-- 1 Spezifikation: YAML + Checks vorhanden (specs/tensor_spec.yaml, scripts/smoke_validate_spec.py)
-- 2 Vorverarbeitung: Flatten/Norm/Pad + Masken (qnn/preprocess.py), Tests/Demo vorhanden
-- 3 Planung: Angle q,L (qnn/planning.py)
-- 4 Encoding-Wahl: Angle/Amplitude/Phase Pfade angelegt
-- 5A Angle: Circuit + Sim (qnn/circuits.py, scripts/demo_angle_sim.py)
-- 5B Amplitude: StatePreparation + Overlap-Check (scripts/demo_amplitude_sim.py)
-- 5C Phase: Circuit + Sim (scripts/demo_phase_sim.py)
-- 7 Mess-Design: Ideal vs. Shots (scripts/demo_measurements.py)
-- 8/9 Robustheit/Noise: Aer-Noise-Demo (scripts/demo_noise_angle.py)
-- README + Runner: README.md, scripts/run_all.py
+## Fortschritt (26.08.2025)
+
+- [x] Spezifikation — `specs/tensor_spec.yaml`, `scripts/smoke_validate_spec.py`
+- [x] Vorverarbeitung — `qnn/preprocess.py`, Demos/Tests: `scripts/demo_preprocess.py`, `tests/test_preprocess.py`
+- [x] Planung — Angle q,L in `qnn/planning.py`
+- [x] Encoding-Pfade — `qnn/circuits.py`; Demos: `scripts/demo_angle_sim.py`, `scripts/demo_phase_sim.py`, `scripts/demo_amplitude_sim.py`
+- [x] Spezialfälle/Demos — `scripts/demo_image_angle.py`, `scripts/demo_kernel_grid.py`
+- [x] Mess-Design — `scripts/demo_measurements.py`
+- [x] Robustheit/Noise — `scripts/demo_noise_angle.py`
+- [x] Transpilation/Backend — `qnn/transpile.py`, `scripts/demo_transpile_angle.py`
+- [x] Sweeps & Plots — `scripts/sweep_alpha_L.py`, `scripts/sweep_noise.py`, `scripts/plot_sweeps.py`, Artefakte: `reports/*.png`
+- [x] VQA & Classifier — `qnn/vqa.py`, Demos: `scripts/demo_vqa_spsa.py`, `scripts/demo_reupload_classifier.py`
+- [x] Training — `scripts/train_reupload_classifier.py` (Logs → `reports/train_reupload_classifier.json`, Params → `reports/reupload_params.json`)
+- [x] CLI/UX & Config — Konsolenbefehle `qnn-train`/`qnn-predict`; `qnn/config.py`, `configs/example.yaml`, `qnn/models.py`, `scripts/predict_reupload_classifier.py`
+- [x] Tests — Pipeline/Models/Config: 6/6 grün
+- [x] CI — GitHub Actions: Spec/Tests/Demos + Smoke Train/Predict (`.github/workflows/ci.yml`)
+
+Nächste sinnvolle Schritte (kurz)
+- Prediction-Export (`--export json|csv`) und reproduzierbares `--seed` + Logging.
+- Hardware-Targeting: Basisgates/Coupling in Demos/CI prüfen, Transpile-Metriken festhalten.
+- Realdaten-Loader (CSV/NumPy) + Evaluierung (Accuracy/AUC) und Ergebnis-Reports.

@@ -1,0 +1,44 @@
+# Tensor specification for Ollama embeddings (vector d=768)
+# Copy of base spec with adjusted dimension.
+tensor_spec:
+  id: qnn.tensor.v1
+  purpose: input features for angle-encoding (Ollama embeddings)
+  dtype: float32
+  value_range:
+    min: -1.0
+    max: 1.0
+    units: normalized
+    allow_nan_inf: false
+  shape:
+    layout: d
+    H: null
+    W: null
+    C: null
+    d: 768
+    batch_dimension: separate
+  indexing:
+    order: row-major
+    mapping_note: "i = i  (vector layout)"
+  complex:
+    representation: real
+  preprocessing:
+    normalize: {type: none, params: {}}
+    clip: {enabled: false, min: null, max: null}
+    quantize: {enabled: false, bits: null, mode: null}
+    pad:
+      to_power_of_two: {enabled: false, axis: flattened, pad_value: 0.0}
+  encoding_goal:
+    target: angle
+    angles:
+      alpha: 3.141592653589793
+    amplitude:
+      require_l2_norm: true
+    phase:
+      beta: null
+  observables_plan:
+    - name: Z_chain
+      desc: Z⊗…⊗Z on data qubits
+  versioning:
+    date: 2025-08-27
+    author: auto
+    dataset_version: ollama-embeds

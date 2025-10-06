@@ -1,5 +1,6 @@
 # Tensor specification for quantum state encoding
 # Fill in the TODOs and commit alongside data/code.
+
 tensor_spec:
   id: qnn.tensor.v1
   purpose: input features for angle-encoding
@@ -9,24 +10,30 @@ tensor_spec:
     max: 1.0
     units: normalized  # or original units
     allow_nan_inf: false
+
   shape:
-    layout: d  # HxWxC or d
-    H: null       # int or null
+    # layout can be 'HxWxC' or 'd'
+    layout: d
+    H: null   # int or null
     W: null
     C: null
-    d:  16      # use if vector; else null
+    d: 16     # use if vector; else null
     batch_dimension: separate
+
   indexing:
     order: row-major  # or col-major
     mapping_note: "i = i  (vector layout)"
+
   complex:
     representation: real  # {real|split_complex|phase_only}
+
   preprocessing:
     normalize: {type: none, params: {}}  # {none|l2|zscore}
     clip: {enabled: false, min: null, max: null}
     quantize: {enabled: false, bits: null, mode: null}
     pad:
       to_power_of_two: {enabled: false, axis: flattened, pad_value: 0.0}
+
   encoding_goal:
     target: angle  # {angle|amplitude|phase|basis}
     angles:
@@ -35,9 +42,11 @@ tensor_spec:
       require_l2_norm: true
     phase:
       beta: null
+
   observables_plan:
     - name: Z_chain
       desc: Z⊗…⊗Z on data qubits
+
   versioning:
     date: 2025-08-26
     author: TODO

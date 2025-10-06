@@ -40,3 +40,23 @@ jobs:
         run: |
           qnn-train --steps 1 --batch 8 --q 2 --L 1 --out reports/ci_params.json
           qnn-predict --params reports/ci_params.json --n 2
+
+      - name: Hardware transpile summary
+        run: |
+          python scripts/hw_transpile_summary.py --q 3 --L 1 --basis rz sx x cx --coupling "[[0,1],[1,2]]" --out reports/hw_ci.json
+          test -f reports/hw_ci.json
+
+      - name: Eval with plot
+        run: |
+          python scripts/eval_classifier.py --params reports/ci_params.json --seed 0 --plot reports/pr_ci.png --roc-plot reports/roc_ci.png
+          test -f reports/pr_ci.png
+          test -f reports/roc_ci.png
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            reports/hw_ci.json
+            reports/pr_ci.png
+            reports/roc_ci.png
