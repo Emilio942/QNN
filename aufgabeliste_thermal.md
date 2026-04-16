@@ -103,3 +103,34 @@ Dieses Projekt zielt darauf ab, vortrainierte Transformer-Modelle (z.B. BERT, GP
 ## 📝 Dokumentation & API
 - [ ] Docstrings für alle Adapter-Methoden.
 - [ ] Beispiel-Notebook `demo_thermal_transformer.ipynb` erstellen.
+
+---
+
+## 🔬 Phase 8: Advanced Mathematical Theory (Inquiry)
+*Mathematische Fundierung und Optimierung*
+
+- [ ] **Gradient Estimation & Variance Analysis**
+    - [ ] Untersuchung des Fluctuation-Dissipation Theorems als Alternative zum STE.
+    - [ ] Analyse der Varianz-Entwicklung bei steigender Layer-Tiefe.
+- [ ] **Phase Transitions & Learning Stability**
+    - [ ] Identifikation kritischer Punkte (Phasenübergänge) in den Gewichten.
+    - [ ] Entwicklung einer "Thermodynamic Learning Rate" basierend auf magnetischer Suszeptibilität.
+- [x] **Inquiry: "Carlin Questions"**
+    - [x] Beantwortung der theoretischen Fragen in `docs/CARLIN_QUESTIONS.md` zur Information Geometry. (Ergebnisse in `docs/THEORETICAL_FOUNDATIONS.md`)
+
+---
+
+## 🛠️ Phase 9: Theory-Driven Implementation
+*Umsetzung der mathematischen Durchbrüche*
+
+- [ ] **Dynamic Temperature Scaling (The $T^*$ Rule)**
+    - [ ] Implementierung von `estimate_optimal_temperature()` in `ThermalLinear`.
+    - [ ] Test: Verbessert die SNR-Rate bei schwachen Signalen.
+- [ ] **Thermodynamic Auto-Tuner (Gradient-based)**
+    - [ ] Implementierung der Covariance-basierten Temperatur-Ableitung.
+    - [ ] Training von $T$ als differenzierbarer Parameter neben den Gewichten $W$.
+- [ ] **Sample Confidence Monitor**
+    - [ ] Berechnung der benötigten Samples $S$ basierend auf $\|W\|$.
+    - [ ] Warnung im Predict-Script, wenn $S$ zu gering für die gewünschte Präzision ist.
+- [ ] **Phase-Aware Potential (Experimental)**
+    - [ ] Prototyp eines komplex-wertigen Energiepotentials zur Erhaltung der Berry-Phase.

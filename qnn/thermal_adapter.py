@@ -9,21 +9,18 @@ from thrml.models.discrete_ebm import SpinGibbsConditional, CategoricalGibbsCond
 
 class ThermalContext:
     """
-    Manages the JAX PRNGKey state for deterministic sampling across the model.
-    Acts as a central source of randomness and global parameters (Temperature).
+    Manages the JAX PRNGKey state and trainable thermodynamic parameters.
     """
     def __init__(self, seed: int = 42, temperature: float = 1.0):
         self.key = jax.random.PRNGKey(seed)
+        # Temperature is now often managed as a torch.Parameter in the layers,
+        # but we keep a default here for standalone use.
         self.temperature = temperature
         
     def next_key(self):
         """Returns a new key and updates internal state."""
         self.key, subkey = jax.random.split(self.key)
         return subkey
-    
-    def set_temperature(self, temp: float):
-        """Updates the global temperature."""
-        self.temperature = temp
 
 class TransformerToThermalAdapter:
     """
@@ -206,154 +203,137 @@ class TransformerToThermalAdapter:
         self.factors.append(factor)
         return factor
 
-# --- Optimized JAX Kernels for Linear (Spin Activation) ---
+# --- Optimized JAX Kernels with Covariance Estimation ---
 
-def _sample_spin_activation_kernel(key, biases, n_samples, temperature):
+def _sample_and_correlate_kernel(key, h_eff, n_samples, temperature):
     """
-    Samples spin states given local fields (biases).
-    biases: (n_features,)
+    Samples spins and calculates the covariance with energy for the gradient.
+    E(s) = -h_eff * s (Local Field Energy)
     """
-    n_features = biases.shape[0]
-    
-    # 1. Define Nodes
-    nodes = [SpinNode() for _ in range(n_features)]
-    block = Block(nodes)
-    
-    # 2. Define Factor (Ising with only biases)
     beta = 1.0 / temperature
+    # Single-spin activation is simple: P(s=1) = sigmoid(2 * beta * h_eff)
+    prob = jax.nn.sigmoid(2.0 * beta * h_eff)
+    samples = jax.random.bernoulli(key, prob, (n_samples,)).astype(jnp.float32)
+    # Map {0, 1} to {-1, 1}
+    spins = 2.0 * samples - 1.0
     
-    # Workaround: IsingEBM might fail with empty edges.
-    # We add dummy self-loops with 0 weight.
-    # s_i * s_i = 1, so this adds a constant energy term which doesn't affect sampling.
-    edges = [(nodes[i], nodes[i]) for i in range(n_features)]
-    edge_weights = jnp.zeros(n_features)
+    # Calculate Covariance for Gradient: d<s_i>/d_beta = -Cov(s_i, E_i)
+    # Local energy E_i = -h_eff * s_i
+    energies = -h_eff * spins
     
-    ising = IsingEBM(
-        nodes=nodes,
-        edges=edges,
-        biases=biases,
-        weights=edge_weights,
-        beta=jnp.array(beta)
-    )
+    mean_s = jnp.mean(spins)
+    mean_e = jnp.mean(energies)
+    mean_se = jnp.mean(spins * energies)
     
-    # 3. Program
-    ebm = FactorizedEBM(ising.factors)
-    sampler = SpinGibbsConditional()
-    spec = BlockGibbsSpec(free_super_blocks=[block], clamped_blocks=[])
+    cov_se = mean_se - mean_s * mean_e
     
-    program = FactorSamplingProgram(
-        gibbs_spec=spec,
-        samplers=[sampler],
-        factors=ebm.factors,
-        other_interaction_groups=[]
-    )
-    
-    # 4. Schedule
-    schedule = SamplingSchedule(n_warmup=10, n_samples=n_samples, steps_per_sample=1)
-    
-    # 5. Init & Sample
-    init_state = jax.random.bernoulli(key, 0.5, (n_features,))
-    
-    samples_list = sample_states(
-        key,
-        program,
-        schedule,
-        [init_state],
-        [],
-        [block]
-    )
-    
-    return samples_list[0]
+    return mean_s, cov_se
 
-# Batched JIT for Spin Activation
-_batched_spin_activation_sampler = jax.jit(
-    jax.vmap(_sample_spin_activation_kernel, in_axes=(0, 0, None, None)),
-    static_argnums=(2,) # n_samples is static
+_batched_thermal_sampler = jax.jit(
+    # Vmap over batch (axis 0) and then over features (axis 1)
+    jax.vmap(
+        jax.vmap(_sample_and_correlate_kernel, in_axes=(0, 0, None, None)),
+        in_axes=(0, 0, None, None)
+    ),
+    static_argnums=(2,)
 )
 
 class ThermalActivationFunction(torch.autograd.Function):
     """
-    Custom Autograd Function for Thermodynamic Activation.
-    Forward: Samples spins from the TSU (via JAX).
-    Backward: Straight-Through Estimator (STE).
+    Thermodynamic Activation with Covariance-based Temperature Gradient.
     """
     @staticmethod
     def forward(ctx, h_eff, n_samples, temperature, context):
         # 1. Prepare JAX
         h_eff_jax = jnp.array(h_eff.detach().cpu().numpy())
-        batch_size = h_eff.shape[0]
+        batch_size, out_features = h_eff.shape
         
-        # 2. Get Key
+        # 2. Get Keys for every single spin (batch * out_features)
         rng_key = context.next_key()
-        keys = jax.random.split(rng_key, batch_size)
+        keys = jax.random.split(rng_key, batch_size * out_features)
+        keys_reshaped = keys.reshape(batch_size, out_features, -1)
         
-        # 3. Sample
-        samples = _batched_spin_activation_sampler(
-            keys, 
-            h_eff_jax, 
-            n_samples, 
-            temperature
+        # 3. Sample and get Covariance
+        # means: (batch, out), covs: (batch, out)
+        means_jax, covs_jax = _batched_thermal_sampler(
+            keys_reshaped, h_eff_jax, n_samples, temperature.item()
         )
         
         # 4. Convert to Torch
-        samples_torch = torch.tensor(np.array(samples), device=h_eff.device, dtype=torch.float32)
-        output_mean = samples_torch.mean(dim=1) # (batch, out)
+        output = torch.tensor(np.array(means_jax), device=h_eff.device, dtype=torch.float32)
+        ctx.cov_se = torch.tensor(np.array(covs_jax), device=h_eff.device, dtype=torch.float32)
+        ctx.save_for_backward(h_eff, temperature)
         
-        # Map to [-1, 1]
-        output_scaled = 2.0 * output_mean - 1.0
-        
-        # Save for backward (optional, if we want non-identity STE)
-        # ctx.save_for_backward(h_eff, output_scaled)
-        
-        return output_scaled
+        return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        # Straight-Through Estimator (Identity)
-        # dL/dh_eff = dL/dy * 1
-        # We could also use Tanh derivative here for better gradients.
-        # For now, Identity is robust.
-        return grad_output, None, None, None
+        h_eff, temperature = ctx.saved_tensors
+        cov_se = ctx.cov_se
+        
+        # Gradient w.r.t. h_eff (Effective Field) -> still use STE/Identity for now
+        grad_h = grad_output.clone() 
+        
+        # --- THE AUTO-TUNER KEY: Gradient w.r.t. Temperature ---
+        # dL/dT = dL/d<s.> * d<s.>/d_beta * d_beta/dT
+        # Result: dL/dT = dL/d<s.> * Cov(s, E) / T^2
+        grad_T_elements = grad_output * cov_se / (temperature ** 2)
+        grad_T = grad_T_elements.sum().view_as(temperature) 
+        
+        # Return gradients for (h_eff, n_samples, temperature, context)
+        return grad_h, None, grad_T, None
 
 class ThermalLinear(nn.Module):
     """
-    A PyTorch module that wraps a Linear layer but executes it using 
-    thermodynamic sampling via THRML.
-    
-    Refactored to use "Effective Fields" (Input Fidelity):
-    Instead of clamping input nodes (which requires binarization),
-    we compute the effective field h_eff = Wx + b in PyTorch,
-    and use it as a bias for the output spins.
+    Linear layer with Trainable Log-Temperature and Stability Patch.
+    Uses Entropy Regularization to prevent the Heating Paradox.
     """
-    def __init__(self, original_layer: nn.Linear, adapter: TransformerToThermalAdapter, n_samples=1, context: ThermalContext = None):
+    def __init__(self, original_layer: nn.Linear, adapter: TransformerToThermalAdapter, n_samples=100, context: ThermalContext = None):
         super().__init__()
         self.original_layer = original_layer
-        self.adapter = adapter
+        self.n_features = original_layer.out_features
         self.n_samples = n_samples
-        self.out_features = original_layer.out_features
-        # Initialize context with adapter's temperature if not provided
-        self.context = context if context is not None else ThermalContext(temperature=adapter.temperature)
+        self.context = context if context is not None else ThermalContext()
         
+        # phi = log(T)
+        init_phi = np.log(max(adapter.temperature, 1e-3))
+        self.log_temperature = nn.Parameter(torch.tensor([init_phi], dtype=torch.float32))
+        
+        # Damping factor to prevent limit cycles (as suggested in Q24)
+        self.damping = 0.01 
+
+    @property
+    def temperature(self):
+        return torch.exp(self.log_temperature)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass using thermodynamic sampling.
-        x: (batch_size, in_features)
-        Returns: (batch_size, out_features) - Mean of samples.
-        """
-        # 1. Compute Effective Fields (Linear Pass)
-        # This preserves the magnitude of inputs!
-        # h_eff: (batch, out)
         h_eff = self.original_layer(x)
+        T = self.temperature
         
-        # 2. Apply Thermal Activation (with Autograd)
-        output_scaled = ThermalActivationFunction.apply(
+        with torch.no_grad():
+            std = h_eff.std()
+            if std > 0:
+                scale = (2.0 * T.data) / std
+                h_eff = h_eff * scale
+
+        # Apply Activation
+        output = ThermalActivationFunction.apply(
             h_eff, 
             self.n_samples, 
-            self.context.temperature, 
+            T, 
             self.context
         )
-        
-        return output_scaled
+
+        # STABILITY PATCH: Entropy Regularization
+        # Prevents T from diverging to infinity (The Heating Paradox)
+        # We add a tiny penalty proportional to log(T) to favor lower temperatures
+        # unless the data strictly requires higher noise.
+        if self.training:
+            entropy_penalty = self.damping * self.log_temperature.pow(2)
+            # We inject this into the autograd graph via a dummy operation
+            output = output + (entropy_penalty - entropy_penalty.detach())
+
+        return output
 
 def replace_linear_layers(model: nn.Module, adapter: TransformerToThermalAdapter, n_samples=1, context: ThermalContext = None):
     """
