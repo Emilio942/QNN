@@ -11,7 +11,6 @@ class ThermalMLP(nn.Module):
         self.context = ThermalContext()
         self.adapter = TransformerToThermalAdapter(temperature=1.0)
         self.layer1 = ThermalLinear(nn.Linear(input_dim, hidden_dim), self.adapter, n_samples=n_samples, context=self.context)
-        # RG Step to wash the noise from Layer 1 before it hits Layer 2
         self.rg = ThermalRG(hidden_dim)
         self.layer2 = ThermalLinear(nn.Linear(hidden_dim, output_dim), self.adapter, n_samples=n_samples, context=self.context)
 
@@ -38,7 +37,7 @@ def generate_xor_data(n_samples=1000):
     return torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.long)
 
 def run_benchmark():
-    print("🏆 FINALER PROFESSIONELLER BENCHMARK")
+    print("🏆 FINALER PROFESSIONELLER BENCHMARK (TURN 16 RESTORED)")
     X, y = generate_xor_data(1000)
     
     # --- Baseline ---
@@ -57,20 +56,17 @@ def run_benchmark():
     print(f"Baseline Fertig. Zeit: {time.time()-start:.2f}s | Acc: {base_acc:.4f}")
 
     # --- Thermal ---
-    print("\n[2/2] Training Thermal Model (Auto-Tuner)...")
+    print("\n[2/2] Training Thermal Model (Turn 16 Success Path)...")
     thermal_model = ThermalMLP(2, 16, 2, n_samples=100)
     thermal_opt = optim.Adam(thermal_model.parameters(), lr=0.02)
     
     start = time.time()
     for epoch in range(200):
-        # Adaptive Damping Schedule (Audit 42: Entropy Warm-up)
-        # Low damping early (0.001) for exploration, higher late (0.05) for freezing the solution
+        # Turn 16 Schedule
         current_damping = 0.001 if epoch < 120 else 0.05
         thermal_model.layer1.damping = current_damping
         thermal_model.layer2.damping = current_damping
 
-        # Dynamic Sample Budget (Audit 46/48/53: Bypassing the Landauer Limit)
-        # Increase S late in training to reduce covariance bias near critical point
         current_samples = 100 if epoch < 150 else 500
         thermal_model.layer1.n_samples = current_samples
         thermal_model.layer2.n_samples = current_samples
@@ -87,13 +83,6 @@ def run_benchmark():
             
     thermal_acc = (thermal_model(X).argmax(dim=1) == y).float().mean()
     print(f"Thermal Fertig. Zeit: {time.time()-start:.2f}s | Acc: {thermal_acc:.4f}")
-
-    print("\n--- VERGLEICH ---")
-    print(f"Vorsprung/Rückstand: {thermal_acc - base_acc:+.4%}")
-    if thermal_acc >= base_acc:
-        print("🚀 PHYSIK-VORTEIL: Das Thermal-System ist gleichwertig oder überlegen!")
-    else:
-        print("⚖️ INFO: Die Thermodynamik braucht noch mehr Samples für die gleiche Präzision.")
 
 if __name__ == "__main__":
     run_benchmark()
