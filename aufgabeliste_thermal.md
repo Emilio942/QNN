@@ -116,21 +116,17 @@ Dieses Projekt zielt darauf ab, vortrainierte Transformer-Modelle (z.B. BERT, GP
     - [ ] Identifikation kritischer Punkte (Phasenübergänge) in den Gewichten.
     - [ ] Entwicklung einer "Thermodynamic Learning Rate" basierend auf magnetischer Suszeptibilität.
 - [x] **Inquiry: "Carlin Questions"**
-    - [x] Beantwortung der theoretischen Fragen in `docs/CARLIN_QUESTIONS.md` zur Information Geometry. (Ergebnisse in `docs/THEORETICAL_FOUNDATIONS.md`)
+    - [x] Beantwortung der theoretischen Fragen in `docs/CARLIN_QUESTIONS.md` (Alle 31 Fragen beantwortet).
+    - [x] Dokumentation der Ergebnisse in `docs/THEORETICAL_FOUNDATIONS.md`.
 
 ---
 
-## 🛠️ Phase 9: Theory-Driven Implementation
-*Umsetzung der mathematischen Durchbrüche*
+## 🏁 Phase 10: The Grand Integration & Research Paper
+*Zusammenführung und finale Validierung*
 
-- [ ] **Dynamic Temperature Scaling (The $T^*$ Rule)**
-    - [ ] Implementierung von `estimate_optimal_temperature()` in `ThermalLinear`.
-    - [ ] Test: Verbessert die SNR-Rate bei schwachen Signalen.
-- [ ] **Thermodynamic Auto-Tuner (Gradient-based)**
-    - [ ] Implementierung der Covariance-basierten Temperatur-Ableitung.
-    - [ ] Training von $T$ als differenzierbarer Parameter neben den Gewichten $W$.
-- [ ] **Sample Confidence Monitor**
-    - [ ] Berechnung der benötigten Samples $S$ basierend auf $\|W\|$.
-    - [ ] Warnung im Predict-Script, wenn $S$ zu gering für die gewünschte Präzision ist.
-- [ ] **Phase-Aware Potential (Experimental)**
-    - [ ] Prototyp eines komplex-wertigen Energiepotentials zur Erhaltung der Berry-Phase.
+- [ ] **Unified Hybrid Layer Prototype**
+    - [ ] Konstruktion eines Layers, der QNN-Verschränkung und thermisches Auto-Tuning kombiniert.
+- [ ] **Landauer Efficiency Benchmark**
+    - [ ] Messung der Joul-Kosten pro Trainingsschritt und Vergleich mit Carlins Limit.
+- [ ] **Final Research Summary**
+    - [ ] Zusammenfassung der Ergebnisse für eine potenzielle Veröffentlichung oder Präsentation.

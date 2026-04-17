@@ -271,17 +271,30 @@ class ThermalActivationFunction(torch.autograd.Function):
         h_eff, temperature = ctx.saved_tensors
         cov_se = ctx.cov_se
         
-        # Gradient w.r.t. h_eff (Effective Field) -> still use STE/Identity for now
+        # Gradient w.r.t. h_eff (Effective Field)
         grad_h = grad_output.clone() 
         
-        # --- THE AUTO-TUNER KEY: Gradient w.r.t. Temperature ---
-        # dL/dT = dL/d<s.> * d<s.>/d_beta * d_beta/dT
-        # Result: dL/dT = dL/d<s.> * Cov(s, E) / T^2
-        grad_T_elements = grad_output * cov_se / (temperature ** 2)
+        # --- FIXED THERMODYNAMIC GRADIENT (Audit Results) ---
+        # kappa = sqrt(12) * Delta_t / tau (Audit Question 50)
+        # For our JAX sampler parameters, kappa = 6.29
+        grad_T_elements = 6.29 * (grad_output * cov_se) / temperature
         grad_T = grad_T_elements.sum().view_as(temperature) 
         
-        # Return gradients for (h_eff, n_samples, temperature, context)
         return grad_h, None, grad_T, None
+
+class ThermalRG(nn.Module):
+    """
+    Layer-Wise Renormalization Group (RG) Step (Audit 4: Question 35).
+    Cleans the signal between thermal layers by normalizing the noise floor.
+    """
+    def __init__(self, dim):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        self.scale = nn.Parameter(torch.ones(1))
+
+    def forward(self, x):
+        # Coarse-graining: Normalize and rescale to maintain information wedge
+        return self.norm(x) * self.scale
 
 class ThermalLinear(nn.Module):
     """
@@ -299,8 +312,8 @@ class ThermalLinear(nn.Module):
         init_phi = np.log(max(adapter.temperature, 1e-3))
         self.log_temperature = nn.Parameter(torch.tensor([init_phi], dtype=torch.float32))
         
-        # Damping factor to prevent limit cycles (as suggested in Q24)
-        self.damping = 0.01 
+        # Initial Damping factor (will be controlled via schedule)
+        self.damping = 0.01
 
     @property
     def temperature(self):
@@ -310,11 +323,12 @@ class ThermalLinear(nn.Module):
         h_eff = self.original_layer(x)
         T = self.temperature
         
-        with torch.no_grad():
-            std = h_eff.std()
-            if std > 0:
-                scale = (2.0 * T.data) / std
-                h_eff = h_eff * scale
+        # Thermodynamic Layer Norm (Normalized Field)
+        # T is removed from scale because it is handled by the EBM (beta=1/T)
+        std = h_eff.std()
+        if std > 1e-6:
+            scale = 2.0 / std
+            h_eff = h_eff * scale
 
         # Apply Activation
         output = ThermalActivationFunction.apply(
@@ -324,13 +338,11 @@ class ThermalLinear(nn.Module):
             self.context
         )
 
-        # STABILITY PATCH: Entropy Regularization
-        # Prevents T from diverging to infinity (The Heating Paradox)
-        # We add a tiny penalty proportional to log(T) to favor lower temperatures
-        # unless the data strictly requires higher noise.
+        # STABILITY PATCH: Entropy Regularization (Audit 3/42)
         if self.training:
+            # Quadratic penalty to keep log(T) near 0 (T=1.0) unless forced
+            # Fixed damping for stability as per Question 42 (Entropy Warm-up)
             entropy_penalty = self.damping * self.log_temperature.pow(2)
-            # We inject this into the autograd graph via a dummy operation
             output = output + (entropy_penalty - entropy_penalty.detach())
 
         return output

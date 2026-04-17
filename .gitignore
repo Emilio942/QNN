@@ -17,3 +17,4 @@ reports/
 build/
 dist/
 *.egg-info/
+docs/CARLIN_QUESTIONS.md
