@@ -31,58 +31,60 @@ class BaselineMLP(nn.Module):
         return self.net(x)
 
 def generate_xor_data(n_samples=1000):
-    np.random.seed(42)
     X = np.random.randn(n_samples, 2)
     y = (np.sign(X[:, 0]) * np.sign(X[:, 1]) > 0).astype(np.longlong)
     return torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.long)
 
-def run_benchmark():
-    print("🏆 FINALER PROFESSIONELLER BENCHMARK (TURN 16 RESTORED)")
+def train_one_model(model_type="thermal", n_epochs=200):
     X, y = generate_xor_data(1000)
-    
-    # --- Baseline ---
-    print("\n[1/2] Training Baseline (ReLU MLP)...")
-    base_model = BaselineMLP(2, 16, 2)
-    base_opt = optim.Adam(base_model.parameters(), lr=0.01)
     criterion = nn.CrossEntropyLoss()
     
-    start = time.time()
-    for _ in range(200):
-        base_opt.zero_grad()
-        loss = criterion(base_model(X), y)
-        loss.backward()
-        base_opt.step()
-    base_acc = (base_model(X).argmax(dim=1) == y).float().mean()
-    print(f"Baseline Fertig. Zeit: {time.time()-start:.2f}s | Acc: {base_acc:.4f}")
-
-    # --- Thermal ---
-    print("\n[2/2] Training Thermal Model (Turn 16 Success Path)...")
-    thermal_model = ThermalMLP(2, 16, 2, n_samples=100)
-    thermal_opt = optim.Adam(thermal_model.parameters(), lr=0.02)
+    if model_type == "baseline":
+        model = BaselineMLP(2, 16, 2)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
+    else:
+        model = ThermalMLP(2, 16, 2, n_samples=100)
+        optimizer = optim.Adam(model.parameters(), lr=0.02)
     
-    start = time.time()
-    for epoch in range(200):
-        # Turn 16 Schedule
-        current_damping = 0.001 if epoch < 120 else 0.05
-        thermal_model.layer1.damping = current_damping
-        thermal_model.layer2.damping = current_damping
+    for epoch in range(n_epochs):
+        if model_type == "thermal":
+            # Best established schedule
+            current_damping = 0.001 if epoch < 120 else 0.05
+            model.layer1.damping = current_damping
+            model.layer2.damping = current_damping
+            current_samples = 100 if epoch < 150 else 500
+            model.layer1.n_samples = current_samples
+            model.layer2.n_samples = current_samples
 
-        current_samples = 100 if epoch < 150 else 500
-        thermal_model.layer1.n_samples = current_samples
-        thermal_model.layer2.n_samples = current_samples
-
-        thermal_opt.zero_grad()
-        outputs = thermal_model(X)
+        optimizer.zero_grad()
+        outputs = model(X)
         loss = criterion(outputs, y)
         loss.backward()
-        thermal_opt.step()
+        optimizer.step()
         
-        if (epoch + 1) % 50 == 0:
-            acc = (outputs.argmax(dim=1) == y).float().mean()
-            print(f"Epoch {epoch+1:03d} | Acc: {acc:.4f} | T1: {thermal_model.layer1.temperature.item():.2f} | T2: {thermal_model.layer2.temperature.item():.2f}")
-            
-    thermal_acc = (thermal_model(X).argmax(dim=1) == y).float().mean()
-    print(f"Thermal Fertig. Zeit: {time.time()-start:.2f}s | Acc: {thermal_acc:.4f}")
+    acc = (model(X).argmax(dim=1) == y).float().mean().item()
+    return acc
+
+def run_multi_trial_benchmark(n_trials=5):
+    print(f"🏆 MULTI-TRIAL BENCHMARK ({n_trials} Durchläufe)")
+    
+    base_accs = []
+    print("\n[1/2] Training Baseline (ReLU MLP)...")
+    for i in range(n_trials):
+        acc = train_one_model("baseline")
+        base_accs.append(acc)
+        print(f"  Trial {i+1}: {acc:.4f}")
+    
+    thermal_accs = []
+    print("\n[2/2] Training Thermal Model (FDT Physics)...")
+    for i in range(n_trials):
+        acc = train_one_model("thermal")
+        thermal_accs.append(acc)
+        print(f"  Trial {i+1}: {acc:.4f}")
+
+    print("\n--- ZUSAMMENFASSUNG ---")
+    print(f"Baseline: {np.mean(base_accs):.4f} ± {np.std(base_accs):.4f}")
+    print(f"Thermal:  {np.mean(thermal_accs):.4f} ± {np.std(thermal_accs):.4f}")
 
 if __name__ == "__main__":
-    run_benchmark()
+    run_multi_trial_benchmark(5)

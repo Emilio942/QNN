@@ -15,7 +15,8 @@ class ThermalContext:
         beta = 1.0 / temp_val
         h_np = h_eff.detach().cpu().numpy()
         batch_size, n_out = h_np.shape
-        probs = 1.0 / (1.0 + np.exp(-2.0 * beta * h_np))
+        # Use clipping to prevent exp overflow
+        probs = 1.0 / (1.0 + np.exp(np.clip(-2.0 * beta * h_np, -15, 15)))
         rand = np.random.rand(n_samples, batch_size, n_out)
         s_samples = np.where(rand < probs[None, :, :], 1.0, -1.0)
         energies = - (h_np[None, :, :] * s_samples).sum(axis=-1)
@@ -41,8 +42,7 @@ class ThermalActivationFunction(torch.autograd.Function):
         h_eff, temperature = ctx.saved_tensors
         cov_se = ctx.cov_se
         grad_h = grad_output.clone()
-        # SUCCESSFUL GRADIENT (Turn 16 logic): 
-        # Using 6.25 and 1/T scaling instead of 1/T^2
+        # SUCCESSFUL GRADIENT (Turn 25 logic): 1/T scaling
         grad_T_elements = 6.25 * (grad_output * cov_se) / temperature
         grad_T = grad_T_elements.sum().view_as(temperature)
         return grad_h, None, grad_T, None
@@ -62,7 +62,7 @@ class ThermalLinear(nn.Module):
         self.n_samples = n_samples
         self.context = context if context is not None else ThermalContext()
         self.log_temperature = nn.Parameter(torch.tensor([np.log(max(adapter.temperature, 1e-3))], dtype=torch.float32))
-        self.damping = 0.01
+        self.damping = 0.05
 
     @property
     def temperature(self):
@@ -71,8 +71,6 @@ class ThermalLinear(nn.Module):
     def forward(self, x):
         h_eff = self.original_layer(x)
         T = self.temperature
-        # SUCCESSFUL SCALING (Turn 16 logic):
-        # Including T in the scale factor
         std = h_eff.std()
         if std > 1e-6:
             h_eff = h_eff * (2.0 * T / std)
